@@ -11,3 +11,4 @@ for i in range(1, len(train_data.columns)):
     plt.ylabel("Frequency")
 
     plt.savefig("data_plot/"+str(train_data.columns[i]+".png"))
+
