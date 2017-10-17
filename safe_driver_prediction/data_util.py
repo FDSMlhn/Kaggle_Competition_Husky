@@ -18,8 +18,15 @@ def load_train_data():
             data_list.append(pickle.load(file = f))
     return pd.concat(data_list)
 
+#deprecated
 def split_train(data,prop,rso=1):
     y = data['target']
     data.drop(['id','target'], axis=1, inplace=True)
     return train_test_split(data,y ,train_size=prop,random_state=rso)
-    
+
+def abandon_col(data,rso=1):
+    y = data['target']
+    data.drop(['id','target'], axis=1, inplace=True)
+    return data, y
+
+
