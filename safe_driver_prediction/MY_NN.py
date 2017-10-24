@@ -76,7 +76,7 @@ class NeuralNetwork():
         self.learning_rate = kwargs.pop('learning_rate',5e-4)
         
         self.lr_decay = kwargs.pop('lr_decay',
-                                   {'step_size':30, 'gamma':1e-1}) #L2 reg
+                                   {'step_size':25, 'gamma':1e-1}) 
         self.weight_decay = kwargs.pop('weight_decay',1e-5) #L2 reg
         self.dropout = kwargs.pop('dropout', 0.5)
         self.verbose = kwargs.pop('verbose', True)
@@ -130,12 +130,14 @@ class NeuralNetwork():
                 self.optimizer.step()
                 self.loss_history.append(loss.data.numpy())
                 if i % 100 ==0:
-                    self.net.eval()
-                    acc_train = self.check_accuracy(X_train_tensor, self.y_train)
-                    acc_val = self.check_accuracy(X_val_tensor, self.y_val)
+                    train_out = self.test(X_train_tensor)
+                    val_out = self.test(X_val_tensor)
                     
-                    auc_train = self.check_auc(X_train_tensor, self.y_train)
-                    auc_val = self.check_auc(X_val_tensor, self.y_val)
+                    acc_train = self.check_accuracy(train_out, self.y_train)
+                    acc_val = self.check_accuracy(val_out, self.y_val)
+                    
+                    auc_train = self.check_auc(train_out, self.y_train)
+                    auc_val = self.check_auc(val_out, self.y_val)
                     
                     self.acc_history['train'].append(acc_train)
                     self.acc_history['val'].append(acc_val)
@@ -161,17 +163,18 @@ class NeuralNetwork():
         self.auc_history['val'] = []
 
                 
-    def check_accuracy(self,X_tensor,y):
-        X_Variable = Variable(X_tensor)
-        out= self.net(X_Variable)
-        out = F.softmax(out)
+    def check_accuracy(self,out,y):
         pred_y = np.argmax(out.data.numpy(),axis=1)
         acc = np.mean(pred_y==y.values)
         return acc
     
-    def check_auc(self, X_tensor,y):
+    def check_auc(self, out,y):
+        auc = roc_auc_score(y.values, out.data.numpy()[:,1])
+        return auc
+    
+    def test(self, X_tensor):
+        self.net.eval()
         X_Variable = Variable(X_tensor)
         out= self.net(X_Variable)
         out = F.softmax(out)
-        auc = roc_auc_score(y.values, out.data.numpy()[:,1])
-        return auc
+        return out
