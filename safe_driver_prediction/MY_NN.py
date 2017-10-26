@@ -61,16 +61,11 @@ class My_Net(nn.Module):
         return out
 
 class NeuralNetwork():
-    def __init__(self,data, **kwargs):
+    def __init__(self, **kwargs):
         
-        self.X_train = data['X_train']
-        self.X_val = data['X_val']
-        self.y_train = data['y_train']
-        self.y_val = data['y_val']
-                
         self.input_size = kwargs.pop('input_size',235)
         self.hidden_size = kwargs.pop('hidden_size',[150,120,80])
-        self.batch_size = kwargs.pop('batch_size',1000)
+        self.batch_size = kwargs.pop('batch_size',4000)
         self.num_classes= kwargs.pop('num_classes',2)
         self.num_epochs = kwargs.pop('num_epochs',5)
         self.learning_rate = kwargs.pop('learning_rate',5e-4)
@@ -81,12 +76,15 @@ class NeuralNetwork():
         self.dropout = kwargs.pop('dropout', 0.5)
         self.verbose = kwargs.pop('verbose', True)
         self.batchnorm = kwargs.pop('batchnorm', True)
+        self.dtype = kwargs.pop('dtype', torch.FloatTensor)
         self.net = My_Net(self.input_size, self.hidden_size,self.num_classes,
-                          self.dropout,self.batchnorm)
-        self.criterion = nn.CrossEntropyLoss()
+                          self.dropout,self.batchnorm).type(self.dtype)
+        self.criterion = nn.CrossEntropyLoss().type(self.dtype)
         
         self.optimizer = torch.optim.Adam(self.net.parameters(),
                         lr=self.learning_rate,weight_decay=self.weight_decay)
+        
+        
         if self.lr_decay is not None:
             self.scheduler= StepLR(self.optimizer,
                                    step_size=self.lr_decay['step_size'],gamma= self.lr_decay['gamma'])
@@ -95,15 +93,17 @@ class NeuralNetwork():
             raise ValueError('Unrecognized arguments!!')
 
 
-    def train(self):
+    def train(self, data):
         self._reset()
-        X_train_tensor = torch.from_numpy(self.X_train.values)
-        X_val_tensor = torch.from_numpy(self.X_val.values)
-        X_train_tensor = X_train_tensor.float()
-        X_val_tensor = X_val_tensor.float()
+        X_train_tensor = torch.from_numpy(data['X_train'])
+        X_val_tensor = torch.from_numpy(data['X_val'])
+        X_train_tensor = X_train_tensor.type(self.dtype)
+        X_val_tensor = X_val_tensor.type(self.dtype)
         
-        y_train_tensor = torch.from_numpy(self.y_train.values)
-
+        y_train_tensor = torch.from_numpy(data['y_train'])
+        y_train =  data['y_train']
+        y_val = data['y_val']
+        
         train_set = Data.TensorDataset(data_tensor=X_train_tensor, target_tensor=y_train_tensor)
 
         data_loader = Data.DataLoader(
@@ -133,11 +133,11 @@ class NeuralNetwork():
                     train_out = self.test(X_train_tensor)
                     val_out = self.test(X_val_tensor)
                     
-                    acc_train = self.check_accuracy(train_out, self.y_train)
-                    acc_val = self.check_accuracy(val_out, self.y_val)
+                    acc_train = self.check_accuracy(train_out, y_train)
+                    acc_val = self.check_accuracy(val_out, y_val)
                     
-                    auc_train = self.check_auc(train_out, self.y_train)
-                    auc_val = self.check_auc(val_out, self.y_val)
+                    auc_train = self.check_auc(train_out, y_train)
+                    auc_val = self.check_auc(val_out, y_val)
                     
                     self.acc_history['train'].append(acc_train)
                     self.acc_history['val'].append(acc_val)
@@ -150,7 +150,7 @@ class NeuralNetwork():
                         print('  acc for train: {}, acc for val: {}'.format(acc_train, acc_val))
                         print('  auc for train: {}, auc for val: {}'.format(auc_train,auc_val))
                         print('--------------------------------------------------------------')
-                        
+        #self._delete()
     
     def _reset(self):
         self.loss_history= []
@@ -161,15 +161,20 @@ class NeuralNetwork():
         self.acc_history['val'] = []
         self.auc_history['train'] = []
         self.auc_history['val'] = []
-
+        
+    def _delete(self):
+        self.X_train = None
+        self.X_val = None
+        self.y_train = None
+        self.y_val = None
                 
     def check_accuracy(self,out,y):
         pred_y = np.argmax(out.data.numpy(),axis=1)
-        acc = np.mean(pred_y==y.values)
+        acc = np.mean(pred_y==y)
         return acc
     
     def check_auc(self, out,y):
-        auc = roc_auc_score(y.values, out.data.numpy()[:,1])
+        auc = roc_auc_score(y, out.data.numpy()[:,1])
         return auc
     
     def test(self, X_tensor):
