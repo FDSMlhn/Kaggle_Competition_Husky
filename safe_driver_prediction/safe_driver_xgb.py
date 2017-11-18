@@ -1,25 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Oct  9 20:17:15 2017
+Created on  Oct  11 23:09:15 2017
 
-@author: dell
+@author: Jiahao Yang
 """
-import os
-import pandas as pd
-import numpy as np
+#import third-party modules
 import xgboost as xgb
 from xgboost.sklearn import XGBClassifier
-from sklearn import cross_validation, metrics
-from sklearn.grid_search import GridSearchCV
+
+from sklearn import metrics
 import datetime
 
-os.chdir('C:\\Users\\dell\\Desktop\\Safe driver')
-train = pd.read_csv("train.csv")
-cat_cols = [col for col in train.columns if '_cat' in col]
-
-#one-hot
-train = pd.get_dummies(train, columns=cat_cols)
-predictors = [x for x in train.columns if x not in ['target', 'id']]
+#import self-modules
+from Feature_Engineering import *
+from data_util import *
 
 
 def xgbfit(alg, dtrain, predictors, useTrainCV=True, cv_folds=5, early_stopping_rounds=50, dtest=None):
@@ -46,8 +40,7 @@ def xgbfit(alg, dtrain, predictors, useTrainCV=True, cv_folds=5, early_stopping_
     print("accuracy: ", metrics.accuracy_score(dtrain['target'].values, dtrain_predictions))
     print("AUC score:", metrics.roc_auc_score(dtrain['target'], dtrain_predprob))
     print("time spent: ", (endtime - starttime).seconds, "s")  
-
-                
+              
 
 xgb1 = XGBClassifier(
         learning_rate = 0.1,
@@ -69,6 +62,7 @@ xgbfit(xgb1, train, predictors, useTrainCV=True)
 #AUC score: 0.678874017623
 #time spent:  3950 s
 #'n_estimators': 91
+
 
 test = pd.read_csv("test.csv")
 test = pd.get_dummies(test, columns=cat_cols)
