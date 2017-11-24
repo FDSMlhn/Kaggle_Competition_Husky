@@ -1,6 +1,7 @@
 from sklearn.preprocessing import StandardScaler
 from sklearn.neural_network import MLPClassifier
 from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import RandomOverSampler
 import pandas as pd
 import numpy as np
 import sys
@@ -100,8 +101,9 @@ class preprocess_cell():
              'ps_calc_13', #463
              'ps_calc_14', #338
              'na_sum',     #468        #newly added
-             'na_ca_t_sum' #135       #newly added
+             'na_ca_t_sum', #135       #newly added
              #'na_ca_t_bi_n_sum' not effective
+            'ps_car_13_x_ps_reg_03'
             ]
         self.uselessones = ['ps_ind_14',
              'ps_ind_10_bin',
@@ -114,48 +116,50 @@ class preprocess_cell():
              'ps_calc_20_bin'
         ]
         
-    def process(self, data,y =None, test= None, rso=1, variable_selection= False):
+    def process(self, data, y=None, test= None, rso=1, variable_selection= False, oversample = None, norm_all =None):
         data['na_sum'] = (data == -1).sum(axis=1)
         data['na_ca_t_sum'] = (data[self.categorical_predictors] == -1).sum(axis=1)
         #data['na_ca_t_bi_n_sum'] = (data[[i for i in self.categorical_predictors if 'bin' in i] ] == -1).sum(axis=1)
         
-
         if variable_selection:
             data = data.drop(self.uselessones, axis=1)
         data[data == -1] = np.nan
+        data['ps_car_13_x_ps_reg_03'] = data['ps_car_13'] * data['ps_reg_03']
         for col in data.columns:
-            if 'bin' in col or 'cat' in col:
+            if 'bin' in col or 'cat' in col:#and col not in ['ps_reg_01_plus_ps_car_02_cat','ps_reg_01_plus_ps_car_04_cat']:
                 data[col] = data[col].astype('category')
         data = pd.get_dummies(data)
         col = data.columns
         self.numeric_predictors = [i for i in self.numeric_predictors if i not in self.uselessones or not variable_selection]
         if test == None:
-            self.mean= data.loc[:,self.numeric_predictors].mean(axis= 0)
-            
+            self.mean= data.loc[:,self.numeric_predictors].mean(axis=0)
             #self.mean= data.loc[:,self.numeric_predictors + self.categorical_predictors].mean(axis= 0)
             data[self.numeric_predictors] =data[self.numeric_predictors].fillna(self.mean)
-            self.scaler = self.scaler.fit(data)
-            data = self.scaler.transform(data)
-            sm = SMOTE(random_state=rso, ratio = 1)
-            X_over, y_over = sm.fit_sample(data, y)
-            return X_over, y_over, col
+            if norm_all:
+                self.scaler = self.scaler.fit(data)
+                data = self.scaler.transform(data)
+            else:
+                self.scaler = self.scaler.fit(data[self.numeric_predictors])
+                data[self.numeric_predictors] = self.scaler.transform(data[self.numeric_predictors])
+                
+            if oversample is not None:
+                #sm = SMOTE(random_state=rso, ratio = oversample)
+                #X_over, y_over = sm.fit_sample(data, y)
+                ros = RandomOverSampler(random_state=0, ratio=oversample)
+                X_over, y_over = ros.fit_sample(data, y)
+                return X_over, y_over, col
+            return data, y, col
         if test == True:
-            data[self.numeric_predictors] = data[self.numeric_predictors].fillna(self.mean)
-            data = self.scaler.transform(data)
-
+            data[self.numeric_predictors] =data[self.numeric_predictors].fillna(self.mean)
+            if norm_all:
+                self.scaler = self.scaler.fit(data)
+                data = self.scaler.transform(data)
+            else:
+                self.scaler = self.scaler.fit(data[self.numeric_predictors])
+                data[self.numeric_predictors] = self.scaler.transform(data[self.numeric_predictors])
         return data    
         
         
         
-        
-# def naive_preprocess():
-#     scaler = StandardScaler()  
-#     scaler.fit(train_data)  
-#     train_data = scaler.transform(train_data,)  
 
 
-#     train_data= train_data.iloc[:10000,:]
-#     train_data = pd.get_dummies(train_data)
-#     train_data.fillna(train_data.mean(),inplace=True)
-#     dev_y = train_data['target']
-#     train_data.drop(['id','target'], axis=1, inplace=True)

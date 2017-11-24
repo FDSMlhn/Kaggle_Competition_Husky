@@ -9,6 +9,11 @@ import matplotlib.pyplot as plt
 from torch.optim.lr_scheduler import StepLR
 import torch.nn.init as init
 import sys
+import data_util
+
+
+class TrainingError(Exception):
+    pass
 
 class My_Net(nn.Module):
     def __init__(self,input_size, hidden_size, num_classes,dropout,batchnorm):
@@ -62,10 +67,11 @@ class My_Net(nn.Module):
 
 class NeuralNetwork():
     def __init__(self, **kwargs):
-        
+        print('sddsd')
+        print(kwargs)
         self.input_size = kwargs.pop('input_size',235)
         self.hidden_size = kwargs.pop('hidden_size',[150,120,80])
-        self.batch_size = kwargs.pop('batch_size',4000)
+        self.batch_size = kwargs.pop('batch_size',1024)
         self.num_classes= kwargs.pop('num_classes',2)
         self.num_epochs = kwargs.pop('num_epochs',5)
         self.learning_rate = kwargs.pop('learning_rate',5e-4)
@@ -139,10 +145,21 @@ class NeuralNetwork():
                     auc_train = self.check_auc(train_out, y_train)
                     auc_val = self.check_auc(val_out, y_val)
                     
+                    if auc_val == self.auc_history['val'][-1] and auc_train == self.auc_history['train'][-1]:
+                        self.patience += 1
+                    else:
+                        self.patience = 0
+                        
+                    if self.patience == 5:
+                        raise TrainingError('Sorry, It\' seems your training process blowing up here!')
+                    #gini_train = data_util.eval_gini(y_train, train_out.data.numpy())
+                    #gini_val = data_util.eval_gini(y_val, val_out.data.numpy())
                     self.acc_history['train'].append(acc_train)
                     self.acc_history['val'].append(acc_val)
                     self.auc_history['train'].append(auc_train)
                     self.auc_history['val'].append(auc_val)
+                    #self.gini_history['train'].append(gini_train)
+                    #self.gini_history['val'].append(gini_val)
                     
                     if self.verbose == True:
                         print('Epoch {}: iteration {}, the loss is {}'.format(epoch
@@ -156,11 +173,16 @@ class NeuralNetwork():
         self.loss_history= []
         self.acc_history={}
         self.auc_history={}
+        self.gini_history={}
         
-        self.acc_history['train'] = []
-        self.acc_history['val'] = []
-        self.auc_history['train'] = []
-        self.auc_history['val'] = []
+        self.acc_history['train'] = [0]
+        self.acc_history['val'] = [0]
+        self.auc_history['train'] = [0]
+        self.auc_history['val'] = [0]
+        self.gini_history['train'] = [0]
+        self.gini_history['val'] = [0]
+        
+        self.patience= 0
         
     def _delete(self):
         self.X_train = None
